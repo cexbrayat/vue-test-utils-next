@@ -17,6 +17,7 @@ interface MountingOptions<Props> {
   mixins?: any[]
   provides?: Record<any, any>
   stubs?: Record<string, any>
+  globalProperties?: Record<any, any>
 }
 
 export function mount<P>(
@@ -73,6 +74,13 @@ export function mount<P>(
       // @ts-ignore: https://github.com/microsoft/TypeScript/issues/1863
       vm.provide(key, options.provides[key])
     }
+  }
+
+  // mock globally available properties
+  if (options?.globalProperties) {
+    Object.entries(options.globalProperties).forEach(([key, value]) => {
+      vm.config.globalProperties[key] = value
+    })
   }
 
   // add tracking for emitted events
