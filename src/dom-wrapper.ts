@@ -10,8 +10,23 @@ export class DOMWrapper<ElementType extends Element> implements WrapperAPI {
     this.element = element
   }
 
-  classes() {
-    return Array.from(this.element.classList)
+  classes(className?) {
+    const classes = this.element.classList
+
+    if (className) return classes.contains(className)
+
+    return Array.from(classes)
+  }
+
+  attributes(key?: string) {
+    const attributes = this.element.attributes
+    const attributeMap = {}
+    for (let i = 0; i < attributes.length; i++) {
+      const att = attributes.item(i)
+      attributeMap[att.localName] = att.value
+    }
+
+    return key ? attributeMap[key] : attributeMap
   }
 
   exists() {
@@ -41,13 +56,14 @@ export class DOMWrapper<ElementType extends Element> implements WrapperAPI {
     )
   }
 
-  async setChecked(checked: boolean = true) {
+  private async setChecked(checked: boolean = true) {
     // typecast so we get typesafety
     const element = (this.element as unknown) as HTMLInputElement
+    const type = this.attributes().type
 
-    if (element.tagName !== 'INPUT') {
+    if (type === 'radio' && !checked) {
       throw Error(
-        `You need to call setChecked on an input element. You called it on a ${this.element.tagName}`
+        `wrapper.setChecked() cannot be called with parameter false on a '<input type="radio" /> element.`
       )
     }
 
@@ -63,13 +79,60 @@ export class DOMWrapper<ElementType extends Element> implements WrapperAPI {
     return this.trigger('change')
   }
 
+  setValue(value?: any) {
+    const element = (this.element as unknown) as HTMLInputElement
+    const tagName = element.tagName
+    const type = this.attributes().type
+
+    if (tagName === 'OPTION') {
+      return this.setSelected()
+    } else if (tagName === 'INPUT' && type === 'checkbox') {
+      return this.setChecked(value)
+    } else if (tagName === 'INPUT' && type === 'radio') {
+      return this.setChecked(value)
+    } else if (
+      tagName === 'INPUT' ||
+      tagName === 'TEXTAREA' ||
+      tagName === 'SELECT'
+    ) {
+      element.value = value
+
+      if (tagName === 'SELECT') {
+        return this.trigger('change')
+      }
+      this.trigger('input')
+      // trigger `change` for `v-model.lazy`
+      return this.trigger('change')
+    } else {
+      throw Error(`wrapper.setValue() cannot be called on ${tagName}`)
+    }
+  }
+
+  private setSelected() {
+    const element = (this.element as unknown) as HTMLOptionElement
+
+    if (element.selected) {
+      return
+    }
+
+    element.selected = true
+    let parentElement = element.parentElement
+
+    if (parentElement.tagName === 'OPTGROUP') {
+      parentElement = parentElement.parentElement
+    }
+
+    return new DOMWrapper(parentElement).trigger('change')
+  }
+
   async trigger(eventString: string) {
     const evt = document.createEvent('Event')
     evt.initEvent(eventString)
 
     if (this.element) {
       this.element.dispatchEvent(evt)
-      return nextTick
     }
+
+    return nextTick
   }
 }

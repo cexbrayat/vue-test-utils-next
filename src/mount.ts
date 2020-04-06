@@ -1,10 +1,22 @@
-import { h, createApp, VNode, defineComponent } from 'vue'
+import {
+  h,
+  createApp,
+  VNode,
+  defineComponent,
+  VNodeNormalizedChildren,
+  VNodeProps,
+  ComponentOptions,
+  Plugin,
+  Directive,
+  Component
+} from 'vue'
 
 import { VueWrapper, createWrapper } from './vue-wrapper'
 import { createEmitMixin } from './emitMixin'
 import { createDataMixin } from './dataMixin'
+import { MOUNT_ELEMENT_ID } from './constants'
 
-type Slot = VNode | string
+type Slot = VNode | string | { render: Function }
 
 interface MountingOptions<Props> {
   data?: () => Record<string, unknown>
@@ -13,66 +25,85 @@ interface MountingOptions<Props> {
     default?: Slot
     [key: string]: Slot
   }
-  plugins?: any[]
-  mixins?: any[]
-  provides?: Record<any, any>
+  global?: {
+    plugins?: Plugin[]
+    mixins?: ComponentOptions[]
+    provide?: Record<any, any>
+    components?: Record<string, Component>
+    directives?: Record<string, Directive>
+  }
   stubs?: Record<string, any>
   globalProperties?: Record<any, any>
 }
 
 export function mount<P>(
-  component: any,
+  originalComponent: any,
   options?: MountingOptions<P>
 ): VueWrapper {
+  const component = { ...originalComponent }
+
   // Reset the document.body
   document.getElementsByTagName('html')[0].innerHTML = ''
   const el = document.createElement('div')
-  el.id = 'app'
+  el.id = MOUNT_ELEMENT_ID
   document.body.appendChild(el)
 
   // handle any slots passed via mounting options
-  const slots =
+  const slots: VNodeNormalizedChildren =
     options?.slots &&
-    Object.entries(options.slots).reduce<Record<string, () => VNode | string>>(
-      (acc, [name, fn]) => {
-        acc[name] = () => fn
+    Object.entries(options.slots).reduce((acc, [name, slot]) => {
+      // case of an SFC getting passed
+      if (typeof slot === 'object' && 'render' in slot) {
+        acc[name] = slot.render
         return acc
-      },
-      {}
-    )
+      }
+
+      acc[name] = () => slot
+      return acc
+    }, {})
+
+  // override component data with mounting options data
+  if (options?.data) {
+    const dataMixin = createDataMixin(options.data())
+    component.mixins = [...(component.mixins || []), dataMixin]
+  }
 
   // create the wrapper component
-  const Parent = (props?: P) =>
+  const Parent = (props?: VNodeProps) =>
     defineComponent({
       render() {
-        return h(component, props, slots)
+        return h(component, { ...props, ref: 'VTU_COMPONENT' }, slots)
       }
     })
 
   // create the vm
   const vm = createApp(Parent(options && options.props))
 
-  // override component data with mounting options data
-  if (options?.data) {
-    const dataMixin = createDataMixin(options.data())
-    vm.mixin(dataMixin)
-  }
-
   // use and plugins from mounting options
-  if (options?.plugins) {
-    for (const use of options.plugins) vm.use(use)
+  if (options?.global?.plugins) {
+    for (const use of options?.global?.plugins) vm.use(use)
   }
 
   // use any mixins from mounting options
-  if (options?.mixins) {
-    for (const mixin of options.mixins) vm.mixin(mixin)
+  if (options?.global?.mixins) {
+    for (const mixin of options?.global?.mixins) vm.mixin(mixin)
+  }
+
+  if (options?.global?.components) {
+    for (const key of Object.keys(options?.global?.components))
+      vm.component(key, options.global.components[key])
+  }
+
+  if (options?.global?.directives) {
+    for (const key of Object.keys(options?.global?.directives))
+      vm.directive(key, options.global.directives[key])
   }
 
   // provide any values passed via provides mounting option
-  if (options?.provides) {
-    for (const key of Reflect.ownKeys(options.provides)) {
+  if (options?.global?.provide) {
+    for (const key of Reflect.ownKeys(options.global.provide)) {
       // @ts-ignore: https://github.com/microsoft/TypeScript/issues/1863
-      vm.provide(key, options.provides[key])
+      vm.provide(key, options.global.provide[key])
     }
   }
 
@@ -88,7 +119,7 @@ export function mount<P>(
   vm.mixin(emitMixin)
 
   // mount the app!
-  const app = vm.mount('#app')
+  const app = vm.mount(el)
 
   return createWrapper(app, events)
 }

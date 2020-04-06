@@ -14,6 +14,10 @@ export class ErrorWrapper {
     return Error(`Cannot call ${method} on an empty wrapper.`)
   }
 
+  attributes() {
+    throw this.wrapperError('attributes')
+  }
+
   classes() {
     throw this.wrapperError('classes')
   }
@@ -22,16 +26,20 @@ export class ErrorWrapper {
     return false
   }
 
-  find() {
+  find(): never {
     throw this.wrapperError('find')
   }
 
-  findAll() {
+  findAll(): never {
     throw this.wrapperError('findAll')
   }
 
   setChecked() {
     throw this.wrapperError('setChecked')
+  }
+
+  setValue() {
+    throw this.wrapperError('setValue')
   }
 
   text() {
