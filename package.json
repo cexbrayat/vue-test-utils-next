@@ -56,5 +56,8 @@
     "*.ts": [
       "prettier --parser=typescript --write"
     ]
+  },
+  "dependencies": {
+    "lodash": "^4.17.15"
   }
 }
