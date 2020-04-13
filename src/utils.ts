@@ -1,6 +1,11 @@
 import mergeWith from 'lodash/mergeWith'
 
-export function mergeGlobalProperties(configGlobal = {}, mountGlobal = {}) {
+import { GlobalMountOptions } from './types'
+
+export function mergeGlobalProperties(
+  configGlobal = {},
+  mountGlobal = {}
+): GlobalMountOptions {
   return mergeWith({}, configGlobal, mountGlobal, (objValue, srcValue, key) => {
     switch (key) {
       case 'mocks':
