@@ -9,10 +9,11 @@ import {
   ComponentOptions,
   ConcreteComponent,
   DefineComponent,
-  transformVNodeArgs
+  transformVNodeArgs,
+  Slot
 } from 'vue'
 
-import { MountingOptions, Slot } from './types'
+import { MountingOptions } from './types'
 import {
   getComponentsFromStubs,
   getDirectivesFromStubs,
@@ -129,12 +130,12 @@ export function createInstance(
     options?.slots &&
     Object.entries(options.slots).reduce(
       (
-        acc: { [key: string]: Function },
+        acc: { [key: string]: (args?: object) => void },
         [name, slot]: [string, Slot]
-      ): { [key: string]: Function } => {
+      ): { [key: string]: (args?: object) => void } => {
         if (Array.isArray(slot)) {
           const normalized = slot.map(slotToFunction)
-          acc[name] = (args: unknown) => normalized.map((f) => f(args))
+          acc[name] = (args?: object) => normalized.map((f) => f(args))
           return acc
         }
 

@@ -4,11 +4,11 @@ import {
   Directive,
   Plugin,
   AppConfig,
-  VNode,
   VNodeProps,
   FunctionalComponent,
   ComponentInternalInstance,
-  Ref
+  Ref,
+  Slot
 } from 'vue'
 
 export interface RefSelector {
@@ -26,8 +26,6 @@ export type FindAllComponentsSelector =
   | NameSelector
   | string
 export type FindComponentSelector = RefSelector | FindAllComponentsSelector
-
-export type Slot = VNode | string | { render: Function } | Function | Component
 
 type SlotDictionary = {
   [key: string]: Slot
